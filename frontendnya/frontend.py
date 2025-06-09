@@ -62,6 +62,13 @@ def delete_order(order_id):
     res = requests.delete(f"{BASE_URL}/orders/{order_id}")
     return res.status_code == 200
 
+#-------Analytics Service Functions-----------
+
+def get_sales_analytics():
+    res = requests.get(f"{SERVICE_URLS['Analytics Service']}/analytics/sales")
+    return res.json() if res.status_code == 200 else {}
+
+
 # ---------- Product Service Tab ----------
 if service == "Product Service":
     st.title("🛒 Product Management")
@@ -198,7 +205,35 @@ elif service == "Delivery Service":
 # ---------- Analytics Service Tab ----------
 elif service == "Analytics Service":
     st.title("📊 Analytics Dashboard")
-    st.info("This section will visualize analytics and KPIs.")
+
+    st.subheader("🔍 Insight Options")
+
+    # 1. Input filter dari user
+    status = st.selectbox("Filter Order Status", ["", "PENDING", "PROCESSING", "COMPLETED", "CANCELLED"])
+    col1, col2 = st.columns(2)
+    start_date = col1.date_input("Start Date", value=None)
+    end_date = col2.date_input("End Date", value=None)
+
+    # 2. Kirim parameter ke backend
+    params = {}
+    if status:
+        params["status"] = status
+    if start_date:
+        params["start_date"] = str(start_date)
+    if end_date:
+        params["end_date"] = str(end_date)
+
+    res = requests.get(f"{SERVICE_URLS['Analytics Service']}/analytics/sales", params=params)
+
+    if res.status_code == 200:
+        data = res.json()
+        col1, col2, col3 = st.columns(3)
+        col1.metric("💰 Total Revenue", f"${data['total_revenue']:.2f}")
+        col2.metric("🧾 Total Orders", data['total_orders'])
+        col3.metric("📦 Avg. Order Value", f"${data['average_order']:.2f}")
+    else:
+        st.error("Failed to load analytics.")
+
 
 # ---------- External API Tab ----------
 elif service == "External API":

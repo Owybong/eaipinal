@@ -5,7 +5,7 @@ from resolvers import query
 
 app = Flask(__name__)
 
-type_defs = load_schema_from_path("schema.graphql")
+type_defs = load_schema_from_path("/home/pram/Kuliah/EAI/eaipinal/customer_service/schema.graphql")
 schema = make_executable_schema(type_defs, query)
 
 @app.route("/graphql", methods=["GET"])

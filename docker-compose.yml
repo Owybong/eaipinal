@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  product_service:
+    build: ./product_service
+    ports:
+      - "5001:5001"
+
+  order_service:
+    build: ./order_service
+    ports:
+      - "5003:5003"
+
+  delivery_service:
+    build: ./delivery_service
+    ports:
+      - "5004:5004"
+
+  analytics_service:
+    build: ./analytics_service
+    ports:
+      - "5006:5006"
+
+  frontend:
+    build: ./frontendnya
+    ports:
+      - "3000:3000"
