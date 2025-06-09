@@ -8,12 +8,18 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# MySQL configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost:3308/order_db'  # Change the database name or the port to be inline with your xampp
+# MySQL configuration from environment variables
+MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
+MYSQL_PORT = os.getenv('MYSQL_PORT', '3308')
+MYSQL_USER = os.getenv('MYSQL_USER', 'root')
+MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
+MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'order_db')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # JSON storage configuration
-JSON_STORAGE_FILE = 'order_service/data/orders.json'
+JSON_STORAGE_FILE = 'data/orders.json'
 os.makedirs(os.path.dirname(JSON_STORAGE_FILE), exist_ok=True)
 
 def init_json_storage():
