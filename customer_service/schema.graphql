@@ -6,6 +6,13 @@ type Product {
   price: Float!
 }
 
+type Customer {
+  id: Int!
+  name: String!
+  email: String!
+}
+
 type Query {
   getProducts: [Product!]!
+  getCustomer(id: Int!): Customer
 }

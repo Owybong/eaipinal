@@ -40,6 +40,28 @@ def delete_product(product_id):
     res = requests.delete(f"{BASE_URL}/products/{product_id}")
     return res.status_code == 200
 
+# ---------- Order Service Functions ----------
+def get_orders():
+    res = requests.get(f"{BASE_URL}/orders")
+    return res.json() if res.status_code == 200 else []
+
+def create_order(customer_id, items):
+    data = {
+        "customer_id": customer_id,
+        "items": items
+    }
+    res = requests.post(f"{BASE_URL}/orders", json=data)
+    return res.status_code == 201
+
+def update_order_status(order_id, status):
+    data = {"status": status}
+    res = requests.put(f"{BASE_URL}/orders/{order_id}", json=data)
+    return res.status_code == 200
+
+def delete_order(order_id):
+    res = requests.delete(f"{BASE_URL}/orders/{order_id}")
+    return res.status_code == 200
+
 # ---------- Product Service Tab ----------
 if service == "Product Service":
     st.title("🛒 Product Management")
@@ -89,8 +111,84 @@ elif service == "Inventory Service":
 
 # ---------- Order Service Tab ----------
 elif service == "Order Service":
-    st.title("📑 Order Service")
-    st.info("This section will connect to Order Service endpoints.")
+    st.title("📑 Order Management")
+    
+    tab1, tab2 = st.tabs(["View Orders", "Create Order"])
+    
+    with tab1:
+        st.subheader("📋 All Orders")
+        orders = get_orders()
+        for order in orders:
+            with st.expander(f"Order #{order['id']} - {order['status']}"):
+                st.write(f"Customer ID: {order['customer_id']}")
+                st.write(f"Total Amount: ${order['total_amount']:.2f}")
+                st.write("Items:")
+                for item in order['items']:
+                    st.write(f"- Product #{item['product_id']}: {item['quantity']} units at ${item['unit_price']} each")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    new_status = st.selectbox(
+                        "Update Status",
+                        ["PENDING", "PROCESSING", "COMPLETED", "CANCELLED"],
+                        key=f"status_{order['id']}"
+                    )
+                    if st.button("Update Status", key=f"update_{order['id']}"):
+                        if update_order_status(order['id'], new_status):
+                            st.success("Order status updated.")
+                            st.rerun()
+                with col2:
+                    if st.button("Delete Order", key=f"delete_{order['id']}"):
+                        if delete_order(order['id']):
+                            st.success("Order deleted.")
+                            st.rerun()
+    
+    with tab2:
+        st.subheader("➕ Create New Order")
+        customer_id = st.number_input("Customer ID", min_value=1, step=1)
+        
+        # Get available products
+        products = get_products()
+        
+        items = []
+        st.write("Add Items:")
+        add_item = st.button("Add Item")
+        if add_item:
+            if 'order_items' not in st.session_state:
+                st.session_state.order_items = []
+            st.session_state.order_items.append({})
+            st.rerun()
+        
+        if 'order_items' in st.session_state:
+            for idx, _ in enumerate(st.session_state.order_items):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    product = st.selectbox(
+                        "Product",
+                        products,
+                        format_func=lambda x: f"{x['name']} (${x['price']})",
+                        key=f"product_{idx}"
+                    )
+                with col2:
+                    quantity = st.number_input("Quantity", min_value=1, step=1, key=f"quantity_{idx}")
+                with col3:
+                    if st.button("Remove", key=f"remove_{idx}"):
+                        st.session_state.order_items.pop(idx)
+                        st.rerun()
+                
+                if product:
+                    items.append({
+                        "product_id": product['id'],
+                        "quantity": quantity
+                    })
+        
+        if st.button("Create Order") and items:
+            if create_order(customer_id, items):
+                st.success("Order created successfully!")
+                st.session_state.order_items = []
+                st.rerun()
+            else:
+                st.error("Failed to create order. Please try again.")
 
 # ---------- Delivery Service Tab ----------
 elif service == "Delivery Service":
