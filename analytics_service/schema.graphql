@@ -1,0 +1,9 @@
+type SalesData {
+  productId: ID
+  totalOrders: Int
+  totalQuantity: Int
+}
+
+type Query {
+  sales: [SalesData]
+}

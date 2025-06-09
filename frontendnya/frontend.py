@@ -22,13 +22,14 @@ SERVICE_URLS = {
 BASE_URL = SERVICE_URLS[service]
 
 # ---------- Product Service Functions ----------
-def get_products():
-    res = requests.get(f"{BASE_URL}/products")
+def get_products(service_url=None):
+    url = service_url if service_url else SERVICE_URLS["Product Service"]
+    res = requests.get(f"{url}/products")
     return res.json() if res.status_code == 200 else []
 
 def create_product(name, sku, category, price):
     data = {"name": name, "sku": sku, "category": category, "price": price}
-    res = requests.post(f"{BASE_URL}/products", json=data)
+    res = requests.post(f"{SERVICE_URLS['Product Service']}/products", json=data)
     return res.status_code == 201
 
 def update_product(product_id, name, sku, category, price):
@@ -61,6 +62,13 @@ def update_order_status(order_id, status):
 def delete_order(order_id):
     res = requests.delete(f"{BASE_URL}/orders/{order_id}")
     return res.status_code == 200
+
+#-------Analytics Service Functions-----------
+
+def get_sales_analytics():
+    res = requests.get(f"{SERVICE_URLS['Analytics Service']}/analytics/sales")
+    return res.json() if res.status_code == 200 else {}
+
 
 # ---------- Product Service Tab ----------
 if service == "Product Service":
@@ -147,8 +155,8 @@ elif service == "Order Service":
         st.subheader("➕ Create New Order")
         customer_id = st.number_input("Customer ID", min_value=1, step=1)
         
-        # Get available products
-        products = get_products()
+        # Get available products from Product Service
+        products = get_products(SERVICE_URLS["Product Service"])
         
         items = []
         st.write("Add Items:")
@@ -198,7 +206,39 @@ elif service == "Delivery Service":
 # ---------- Analytics Service Tab ----------
 elif service == "Analytics Service":
     st.title("📊 Analytics Dashboard")
-    st.info("This section will visualize analytics and KPIs.")
+
+    st.subheader("🔍 Insight Options")
+
+    # 1. Input filter
+    status = st.selectbox("Filter Order Status", ["", "PENDING", "PROCESSING", "COMPLETED", "CANCELLED"])
+    col1, col2 = st.columns(2)
+    start_date = col1.date_input("Start Date")
+    end_date = col2.date_input("End Date")
+
+    # 2. Parameter untuk request
+    params = {}
+    if status:
+        params["status"] = status
+    if start_date:
+        params["start_date"] = str(start_date)
+    if end_date:
+        params["end_date"] = str(end_date)
+
+    try:
+        res = requests.get(f"{SERVICE_URLS['Analytics Service']}/analytics/sales", params=params)
+        data = res.json()
+
+        if "error" in data:
+            st.error("Gagal memuat data analytics: " + data["error"])
+        else:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("💰 Total Revenue", f"${data['total_revenue']:.2f}")
+            col2.metric("🧾 Total Orders", data['total_orders'])
+            col3.metric("📦 Avg. Order Value", f"${data['average_order']:.2f}")
+
+    except Exception as e:
+        st.error("Terjadi kesalahan saat mengambil data: " + str(e))
+
 
 # ---------- External API Tab ----------
 elif service == "External API":
