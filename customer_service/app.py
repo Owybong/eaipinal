@@ -5,7 +5,7 @@ from resolvers import query
 
 app = Flask(__name__)
 
-type_defs = load_schema_from_path("/home/pram/Kuliah/EAI/eaipinal/customer_service/schema.graphql")
+type_defs = load_schema_from_path("schema.graphql")
 schema = make_executable_schema(type_defs, query)
 
 @app.route("/graphql", methods=["GET"])
@@ -19,4 +19,4 @@ def graphql_server():
     return jsonify(result)
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

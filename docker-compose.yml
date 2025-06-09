@@ -4,24 +4,40 @@ services:
   product_service:
     build: ./product_service
     ports:
-      - "5001:5001"
+      - "5002:5002"
+    networks:
+      - eai_network
 
   order_service:
     build: ./order_service
     ports:
-      - "5003:5003"
+      - "5004:5004"
+    networks:
+      - eai_network
+    depends_on:
+      - product_service
 
   delivery_service:
     build: ./delivery_service
     ports:
-      - "5004:5004"
+      - "5005:5004"
+    networks:
+      - eai_network
 
   analytics_service:
     build: ./analytics_service
     ports:
       - "5006:5006"
+    networks:
+      - eai_network
 
   frontend:
     build: ./frontendnya
     ports:
       - "3000:3000"
+    networks:
+      - eai_network
+
+networks:
+  eai_network:
+    driver: bridge
