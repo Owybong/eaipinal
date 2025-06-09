@@ -1,3 +1,60 @@
+"""
+Order Service Module
+==================
+
+This module implements a RESTful order management service for the EAI Bookstore system.
+
+Author: Dennis
+Version: 1.0.0
+Date: March 2024
+
+Dependencies:
+------------
+- Flask
+- SQLAlchemy
+- PyMySQL
+- Requests
+
+Main Components:
+--------------
+1. Order Management API
+   - Create, read, update, delete orders
+   - Manage order items
+   - Track order status
+
+2. Storage Systems
+   - Primary: MySQL database
+   - Fallback: JSON file storage
+
+3. External Service Integration
+   - Customer Service (port 5000) - Customer validation
+   - Product Service (port 5002) - Product and price validation
+
+API Endpoints:
+------------
+GET    /orders          - Retrieve all orders
+GET    /orders/{id}     - Retrieve specific order
+POST   /orders          - Create new order
+PUT    /orders/{id}     - Update order status
+DELETE /orders/{id}     - Delete order
+
+Environment Variables:
+-------------------
+MYSQL_HOST      - MySQL host (default: localhost)
+MYSQL_PORT      - MySQL port (default: 3308)
+MYSQL_USER      - MySQL user (default: root)
+MYSQL_PASSWORD  - MySQL password (default: empty)
+MYSQL_DATABASE  - MySQL database (default: order_db)
+
+Usage:
+-----
+Run directly:
+    python app.py
+
+Run with Docker:
+    docker-compose up
+"""
+
 from flask import Flask, request, jsonify
 from database import db
 from models import Order, OrderItem
