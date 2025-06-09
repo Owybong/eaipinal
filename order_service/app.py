@@ -175,7 +175,7 @@ def create_order():
         for item_data in data.get('items', []):
             try:
                 # Verify product exists and get price
-                product_response = requests.get(f'http://localhost:5002/products/{item_data["product_id"]}')
+                product_response = requests.get(f'http://product_service:5002/products/{item_data["product_id"]}')
                 if product_response.status_code == 200:
                     product = product_response.json()
                     unit_price = float(product.get('price', 0))
@@ -229,7 +229,7 @@ def create_order():
         for item_data in data.get('items', []):
             try:
                 # Verify product exists and get price
-                product_response = requests.get(f'http://localhost:5002/products/{item_data["product_id"]}')
+                product_response = requests.get(f'http://product_service:5002/products/{item_data["product_id"]}')
                 if product_response.status_code == 200:
                     product = product_response.json()
                     unit_price = float(product.get('price', 0))
@@ -323,4 +323,4 @@ def delete_order(order_id):
             return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
-    app.run(port=5004, debug=True) 
+    app.run(host='0.0.0.0', port=5004, debug=True) 
