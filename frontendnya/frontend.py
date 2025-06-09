@@ -208,13 +208,13 @@ elif service == "Analytics Service":
 
     st.subheader("🔍 Insight Options")
 
-    # 1. Input filter dari user
+    # 1. Input filter
     status = st.selectbox("Filter Order Status", ["", "PENDING", "PROCESSING", "COMPLETED", "CANCELLED"])
     col1, col2 = st.columns(2)
-    start_date = col1.date_input("Start Date", value=None)
-    end_date = col2.date_input("End Date", value=None)
+    start_date = col1.date_input("Start Date")
+    end_date = col2.date_input("End Date")
 
-    # 2. Kirim parameter ke backend
+    # 2. Parameter untuk request
     params = {}
     if status:
         params["status"] = status
@@ -223,16 +223,20 @@ elif service == "Analytics Service":
     if end_date:
         params["end_date"] = str(end_date)
 
-    res = requests.get(f"{SERVICE_URLS['Analytics Service']}/analytics/sales", params=params)
-
-    if res.status_code == 200:
+    try:
+        res = requests.get(f"{SERVICE_URLS['Analytics Service']}/analytics/sales", params=params)
         data = res.json()
-        col1, col2, col3 = st.columns(3)
-        col1.metric("💰 Total Revenue", f"${data['total_revenue']:.2f}")
-        col2.metric("🧾 Total Orders", data['total_orders'])
-        col3.metric("📦 Avg. Order Value", f"${data['average_order']:.2f}")
-    else:
-        st.error("Failed to load analytics.")
+
+        if "error" in data:
+            st.error("Gagal memuat data analytics: " + data["error"])
+        else:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("💰 Total Revenue", f"${data['total_revenue']:.2f}")
+            col2.metric("🧾 Total Orders", data['total_orders'])
+            col3.metric("📦 Avg. Order Value", f"${data['average_order']:.2f}")
+
+    except Exception as e:
+        st.error("Terjadi kesalahan saat mengambil data: " + str(e))
 
 
 # ---------- External API Tab ----------
