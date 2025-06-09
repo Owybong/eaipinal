@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  product-service:
+    build: .
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./instance:/app/instance
+    networks:
+      - bookstore-network
+
+volumes:
+  product-data:
+    name: product-service-data
+
+networks:
+  bookstore-network:
+    name: bookstore-network 
