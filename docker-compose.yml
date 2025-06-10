@@ -5,6 +5,14 @@ services:
     build: ./product_service
     ports:
       - "5002:5002"
+    volumes:
+      - type: bind
+        source: ./product_service/instance
+        target: /app/instance
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+    user: "1000:1000"
     networks:
       - eai_network
 
@@ -12,6 +20,11 @@ services:
     build: ./order_service
     ports:
       - "5004:5004"
+    volumes:
+      - ./order_service/data:/app/data
+    environment:
+      - PRODUCT_SERVICE_URL=http://product_service:5002
+      - CUSTOMER_SERVICE_URL=http://customer_service:5000
     networks:
       - eai_network
     depends_on:
@@ -20,14 +33,22 @@ services:
   delivery_service:
     build: ./delivery_service
     ports:
-      - "5005:5004"
+      - "5005:5005"
+    volumes:
+      - ./delivery_service/data:/app/data
+    environment:
+      - ORDER_SERVICE_URL=http://order_service:5004
     networks:
       - eai_network
+    depends_on:
+      - order_service
 
-  analytics_service:
-    build: ./analytics_service
+  customer_service:
+    build: ./customer_service
     ports:
-      - "5006:5006"
+      - "5000:5000"
+    volumes:
+      - ./customer_service/data:/app/data
     networks:
       - eai_network
 
@@ -35,9 +56,28 @@ services:
     build: ./frontendnya
     ports:
       - "3000:3000"
+    environment:
+      - PRODUCT_SERVICE_URL=http://product_service:5002
+      - ORDER_SERVICE_URL=http://order_service:5004
+      - DELIVERY_SERVICE_URL=http://delivery_service:5005
+      - ANALYTICS_SERVICE_URL=http://host.docker.internal:5006
+      - CUSTOMER_SERVICE_URL=http://customer_service:5000
     networks:
       - eai_network
+    depends_on:
+      - product_service
+      - order_service
+      - delivery_service
+      - customer_service
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   eai_network:
     driver: bridge
+
+volumes:
+  product_data:
+  order_data:
+  delivery_data:
+  customer_data:
