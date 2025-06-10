@@ -1,7 +1,8 @@
-FROM node:18
+FROM python:3.10
 
 WORKDIR /app
 COPY . .
-RUN npm install
+RUN pip install -r requirements.txt
 
-CMD ["npm", "start"]
+EXPOSE 3000
+CMD ["streamlit", "run", "frontend.py", "--server.port=3000", "--server.address=0.0.0.0"]

@@ -11,13 +11,13 @@ service = st.sidebar.selectbox(
 
 # Base URLs for each service
 SERVICE_URLS = {
-    "Product Service": "http://localhost:5001",
-    "Inventory Service": "http://localhost:5003",
-    "Customer Service": "http://localhost:5002",
-    "Order Service": "http://localhost:5004",
-    "Delivery Service": "http://localhost:5005",
-    "Analytics Service": "http://localhost:5006",
-    "External API": "http://localhost:5007"
+    "Product Service": "http://product_service:5001",
+    "Inventory Service": "http://inventory_service:5003",
+    "Customer Service": "http://customer_service:5002",
+    "Order Service": "http://order_service:5004",
+    "Delivery Service": "http://delivery_service:5005",
+    "Analytics Service": "http://analytics_service:5006",
+    "External API": "http://external_api:5007"
 }
 
 BASE_URL = SERVICE_URLS[service]
@@ -98,8 +98,13 @@ def create_warehouse(warehouse_id, name, location):
         "name": name,
         "location": location
     }
-    res = requests.post(f"{BASE_URL}/warehouses", json=data)
-    return res.status_code == 201
+    try:
+        res = requests.post(f"{BASE_URL}/warehouses", json=data, timeout=10)
+        print(f"Create warehouse response: {res.status_code}, {res.text}")
+        return res.status_code == 201
+    except Exception as e:
+        print(f"Error creating warehouse: {str(e)}")
+        return False
 
 # ---------- Customer Service Functions ----------
 def get_customer(customer_id):
@@ -147,7 +152,7 @@ def get_customer_inventory(product_id):
 def get_all_warehouses():
     query = """
     query GetAllWarehouses {
-        getWarehouses {
+        getAllWarehouses {
             id
             name
             location
@@ -158,7 +163,7 @@ def get_all_warehouses():
     if res.status_code == 200:
         data = res.json()
         if "errors" not in data and "data" in data:
-            return data["data"]["getWarehouses"]
+            return data["data"]["getAllWarehouses"]
     return []
 
 # ---------- Product Service Tab ----------

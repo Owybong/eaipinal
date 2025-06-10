@@ -54,10 +54,10 @@ def delete_product(product_id):
     return jsonify({"message": "Product deleted"})
 
 if __name__ == '__main__':
-    app.run(port=5002, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
     
 # SKU stands for Stock Keeping Unit.
-# It’s a unique code used to identify a product in your inventory system.
+# It's a unique code used to identify a product in your inventory system.
 
 
 

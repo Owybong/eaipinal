@@ -5,7 +5,7 @@ const fetch = require('cross-fetch');
 
 // Create a GraphQL client to interact with our own GraphQL API
 const client = new ApolloClient({
-  uri: 'http://localhost:5003/graphql',
+  uri: 'http://inventory_service:5003/graphql',
   cache: new InMemoryCache(),
   fetch
 });

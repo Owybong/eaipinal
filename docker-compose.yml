@@ -1,43 +1,93 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:13
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   product_service:
     build: ./product_service
     ports:
+      - "5001:5001"
+    networks:
+      - ecommerce_network
+
+  inventory_service:
+    build: ./inventory_service
+    ports:
+      - "5003:5003"
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres_db:5432/inventory_db
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ecommerce_network
+
+  customer_service:
+    build: ./customer_service
+    ports:
       - "5002:5002"
     networks:
-      - eai_network
+      - ecommerce_network
+    depends_on:
+      - inventory_service
+      - product_service
 
   order_service:
     build: ./order_service
     ports:
       - "5004:5004"
     networks:
-      - eai_network
-    depends_on:
-      - product_service
+      - ecommerce_network
 
   delivery_service:
     build: ./delivery_service
     ports:
-      - "5005:5004"
+      - "5005:5005"
     networks:
-      - eai_network
+      - ecommerce_network
 
   analytics_service:
     build: ./analytics_service
     ports:
       - "5006:5006"
     networks:
-      - eai_network
+      - ecommerce_network
 
   frontend:
     build: ./frontendnya
     ports:
       - "3000:3000"
     networks:
-      - eai_network
+      - ecommerce_network
+    depends_on:
+      - product_service
+      - inventory_service
+      - customer_service
+      - order_service
+      - delivery_service
+      - analytics_service
 
 networks:
-  eai_network:
+  ecommerce_network:
     driver: bridge
+
+volumes:
+  postgres_data:
