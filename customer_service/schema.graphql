@@ -12,7 +12,24 @@ type Customer {
   email: String!
 }
 
+type Warehouse {
+  id: String!
+  name: String!
+  location: String
+}
+
+type Inventory {
+  productId: String!
+  warehouseId: String!
+  stock: Int!
+  updatedAt: String!
+  warehouse: Warehouse
+}
+
 type Query {
   getProducts: [Product!]!
   getCustomer(id: Int!): Customer
+  getWarehouses: [Warehouse!]!
+  getInventoryByProduct(productId: String!): [Inventory]
+  getInventoryByWarehouse(warehouseId: String!): [Inventory]
 }

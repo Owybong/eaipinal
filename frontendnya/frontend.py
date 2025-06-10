@@ -6,13 +6,14 @@ st.set_page_config(page_title="📚 Bookstore Control Panel", layout="wide")
 
 service = st.sidebar.selectbox(
     "📂 Select Service",
-    ("Product Service", "Inventory Service", "Order Service", "Delivery Service", "Analytics Service", "External API")
+    ("Product Service", "Inventory Service", "Customer Service", "Order Service", "Delivery Service", "Analytics Service", "External API")
 )
 
 # Base URLs for each service
 SERVICE_URLS = {
-    "Product Service": "http://localhost:5002",
+    "Product Service": "http://localhost:5001",
     "Inventory Service": "http://localhost:5003",
+    "Customer Service": "http://localhost:5002",
     "Order Service": "http://localhost:5004",
     "Delivery Service": "http://localhost:5005",
     "Analytics Service": "http://localhost:5006",
@@ -68,6 +69,96 @@ def get_sales_analytics():
     res = requests.get(f"{SERVICE_URLS['Analytics Service']}/analytics/sales")
     return res.json() if res.status_code == 200 else {}
 
+# ---------- Inventory Service Functions ----------
+def get_warehouses():
+    res = requests.get(f"{BASE_URL}/warehouses")
+    return res.json() if res.status_code == 200 else []
+
+def get_inventory_by_product(product_id):
+    res = requests.get(f"{BASE_URL}/inventory/product/{product_id}")
+    return res.json() if res.status_code == 200 else []
+
+def get_inventory_by_warehouse(warehouse_id):
+    res = requests.get(f"{BASE_URL}/inventory/warehouse/{warehouse_id}")
+    return res.json() if res.status_code == 200 else []
+
+def update_inventory_stock(product_id, warehouse_id, quantity_change):
+    data = {
+        "productId": product_id,
+        "warehouseId": warehouse_id,
+        "quantityChange": quantity_change
+    }
+    res = requests.post(f"{BASE_URL}/inventory/update", json=data)
+    return res.json() if res.status_code == 200 else None
+
+def create_warehouse(warehouse_id, name, location):
+    data = {
+        "id": warehouse_id,
+        "name": name,
+        "location": location
+    }
+    res = requests.post(f"{BASE_URL}/warehouses", json=data)
+    return res.status_code == 201
+
+# ---------- Customer Service Functions ----------
+def get_customer(customer_id):
+    query = """
+    query GetCustomer($id: Int!) {
+        getCustomer(id: $id) {
+            id
+            name
+            email
+        }
+    }
+    """
+    variables = {"id": customer_id}
+    res = requests.post(f"{BASE_URL}/graphql", json={"query": query, "variables": variables})
+    if res.status_code == 200:
+        data = res.json()
+        if "errors" not in data and "data" in data and data["data"]["getCustomer"]:
+            return data["data"]["getCustomer"]
+    return None
+
+def get_customer_inventory(product_id):
+    query = """
+    query GetInventoryByProduct($productId: String!) {
+        getInventoryByProduct(productId: $productId) {
+            productId
+            warehouseId
+            stock
+            updatedAt
+            warehouse {
+                id
+                name
+                location
+            }
+        }
+    }
+    """
+    variables = {"productId": product_id}
+    res = requests.post(f"{BASE_URL}/graphql", json={"query": query, "variables": variables})
+    if res.status_code == 200:
+        data = res.json()
+        if "errors" not in data and "data" in data:
+            return data["data"]["getInventoryByProduct"]
+    return []
+
+def get_all_warehouses():
+    query = """
+    query GetAllWarehouses {
+        getWarehouses {
+            id
+            name
+            location
+        }
+    }
+    """
+    res = requests.post(f"{BASE_URL}/graphql", json={"query": query})
+    if res.status_code == 200:
+        data = res.json()
+        if "errors" not in data and "data" in data:
+            return data["data"]["getWarehouses"]
+    return []
 
 # ---------- Product Service Tab ----------
 if service == "Product Service":
@@ -113,8 +204,143 @@ if service == "Product Service":
 
 # ---------- Inventory Service Tab ----------
 elif service == "Inventory Service":
-    st.title("📦 Inventory Service")
-    st.info("This section will connect to Inventory Service endpoints.")
+    st.title("📦 Inventory Management")
+    
+    tab1, tab2, tab3 = st.tabs(["Warehouses", "Inventory", "Update Stock"])
+    
+    with tab1:
+        st.subheader("📍 Warehouses")
+        warehouses = get_warehouses()
+        
+        for w in warehouses:
+            with st.expander(f"{w['name']} - {w['location']}"):
+                st.write(f"ID: {w['id']}")
+                if st.button("View Inventory", key=f"view_{w['id']}"):
+                    st.session_state.selected_warehouse = w['id']
+                    st.rerun()
+        
+        st.subheader("➕ Add New Warehouse")
+        with st.form("add_warehouse_form"):
+            warehouse_id = st.text_input("Warehouse ID")
+            warehouse_name = st.text_input("Name")
+            warehouse_location = st.text_input("Location")
+            
+            submit_button = st.form_submit_button("Add Warehouse")
+            if submit_button and warehouse_id and warehouse_name:
+                if create_warehouse(warehouse_id, warehouse_name, warehouse_location):
+                    st.success("Warehouse added successfully!")
+                    st.rerun()
+                else:
+                    st.error("Failed to add warehouse. Please try again.")
+    
+    with tab2:
+        st.subheader("🔍 Inventory Search")
+        search_by = st.radio("Search by:", ["Product ID", "Warehouse ID"])
+        
+        if search_by == "Product ID":
+            product_id = st.text_input("Enter Product ID")
+            if product_id and st.button("Search"):
+                inventory_items = get_inventory_by_product(product_id)
+                if inventory_items:
+                    for item in inventory_items:
+                        st.write(f"Warehouse: {item.get('warehouse', {}).get('name', 'Unknown')} ({item['warehouseId']})")
+                        st.write(f"Stock: {item['stock']} units")
+                        st.write(f"Last Updated: {item['updatedAt']}")
+                        st.divider()
+                else:
+                    st.info("No inventory found for this product.")
+        
+        elif search_by == "Warehouse ID":
+            warehouse_id = st.text_input("Enter Warehouse ID")
+            if warehouse_id and st.button("Search"):
+                inventory_items = get_inventory_by_warehouse(warehouse_id)
+                if inventory_items:
+                    for item in inventory_items:
+                        st.write(f"Product ID: {item['productId']}")
+                        st.write(f"Stock: {item['stock']} units")
+                        st.write(f"Last Updated: {item['updatedAt']}")
+                        st.divider()
+                else:
+                    st.info("No inventory found for this warehouse.")
+    
+    with tab3:
+        st.subheader("🔄 Update Inventory Stock")
+        with st.form("update_stock_form"):
+            product_id = st.text_input("Product ID")
+            warehouse_id = st.text_input("Warehouse ID")
+            quantity_change = st.number_input("Quantity Change", value=0, step=1, 
+                                             help="Positive for stock addition, negative for reduction")
+            
+            submit_button = st.form_submit_button("Update Stock")
+            if submit_button and product_id and warehouse_id:
+                result = update_inventory_stock(product_id, warehouse_id, quantity_change)
+                if result:
+                    st.success(f"Stock updated successfully! New stock level: {result['stock']}")
+                else:
+                    st.error("Failed to update stock. Please check the product and warehouse IDs.")
+
+# ---------- Customer Service Tab ----------
+elif service == "Customer Service":
+    st.title("👤 Customer Management")
+    
+    tab1, tab2 = st.tabs(["Customer Details", "Inventory Access"])
+    
+    with tab1:
+        st.subheader("🔍 Customer Lookup")
+        customer_id = st.number_input("Enter Customer ID", min_value=1, step=1)
+        if st.button("Search Customer"):
+            customer = get_customer(customer_id)
+            if customer:
+                st.write(f"**Name:** {customer['name']}")
+                st.write(f"**Email:** {customer['email']}")
+                st.session_state.current_customer = customer
+            else:
+                st.error("Customer not found.")
+    
+    with tab2:
+        st.subheader("🔄 Customer Inventory Access")
+        
+        if "current_customer" in st.session_state:
+            st.write(f"Customer: {st.session_state.current_customer['name']}")
+            
+            search_type = st.radio("Search Inventory By:", ["Product ID", "Warehouse"])
+            
+            if search_type == "Product ID":
+                product_id = st.text_input("Enter Product ID")
+                if product_id and st.button("Check Inventory"):
+                    inventory_items = get_customer_inventory(product_id)
+                    if inventory_items:
+                        for item in inventory_items:
+                            st.write(f"Warehouse: {item.get('warehouse', {}).get('name', 'Unknown')} ({item['warehouseId']})")
+                            st.write(f"Stock: {item['stock']} units")
+                            st.write(f"Last Updated: {item['updatedAt']}")
+                            st.divider()
+                    else:
+                        st.info("No inventory found for this product.")
+            
+            elif search_type == "Warehouse":
+                warehouses = get_all_warehouses()
+                if warehouses:
+                    warehouse_id = st.selectbox(
+                        "Select Warehouse",
+                        options=[w["id"] for w in warehouses],
+                        format_func=lambda x: next((w["name"] for w in warehouses if w["id"] == x), x)
+                    )
+                    
+                    if warehouse_id and st.button("View Warehouse Inventory"):
+                        inventory_items = get_inventory_by_warehouse(warehouse_id)
+                        if inventory_items:
+                            for item in inventory_items:
+                                st.write(f"Product ID: {item['productId']}")
+                                st.write(f"Stock: {item['stock']} units")
+                                st.write(f"Last Updated: {item['updatedAt']}")
+                                st.divider()
+                        else:
+                            st.info("No inventory found in this warehouse.")
+                else:
+                    st.info("No warehouses found.")
+        else:
+            st.info("Please search for a customer first in the Customer Details tab.")
 
 # ---------- Order Service Tab ----------
 elif service == "Order Service":

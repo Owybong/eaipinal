@@ -6,15 +6,28 @@ services:
     ports:
       - "5001:5001"
 
+  inventory_service:
+    build: ./inventory_service
+    ports:
+      - "5003:5003"
+
+  customer_service:
+    build: ./customer_service
+    ports:
+      - "5002:5002"
+    depends_on:
+      - inventory_service
+      - product_service
+
   order_service:
     build: ./order_service
     ports:
-      - "5003:5003"
+      - "5004:5004"
 
   delivery_service:
     build: ./delivery_service
     ports:
-      - "5004:5004"
+      - "5005:5005"
 
   analytics_service:
     build: ./analytics_service
