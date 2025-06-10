@@ -12,12 +12,17 @@ services:
       - MYSQL_USER=root
       - MYSQL_PASSWORD=
       - MYSQL_DATABASE=order_db
+      - CUSTOMER_SERVICE_URL=http://host.docker.internal:5000
+      - PRODUCT_SERVICE_URL=http://host.docker.internal:5002
     volumes:
       - ./data:/app/data
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
       - bookstore-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   mysql:
     image: mysql:8.0
@@ -28,6 +33,11 @@ services:
       - MYSQL_DATABASE=order_db
     volumes:
       - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - bookstore-network
 
