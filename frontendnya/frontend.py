@@ -23,13 +23,14 @@ SERVICE_URLS = {
 BASE_URL = SERVICE_URLS[service]
 
 # ---------- Product Service Functions ----------
-def get_products():
-    res = requests.get(f"{BASE_URL}/products")
+def get_products(service_url=None):
+    url = service_url if service_url else SERVICE_URLS["Product Service"]
+    res = requests.get(f"{url}/products")
     return res.json() if res.status_code == 200 else []
 
 def create_product(name, sku, category, price):
     data = {"name": name, "sku": sku, "category": category, "price": price}
-    res = requests.post(f"{BASE_URL}/products", json=data)
+    res = requests.post(f"{SERVICE_URLS['Product Service']}/products", json=data)
     return res.status_code == 201
 
 def update_product(product_id, name, sku, category, price):
@@ -380,8 +381,8 @@ elif service == "Order Service":
         st.subheader("➕ Create New Order")
         customer_id = st.number_input("Customer ID", min_value=1, step=1)
         
-        # Get available products
-        products = get_products()
+        # Get available products from Product Service
+        products = get_products(SERVICE_URLS["Product Service"])
         
         items = []
         st.write("Add Items:")
