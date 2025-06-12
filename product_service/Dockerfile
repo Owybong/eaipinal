@@ -1,8 +1,7 @@
 FROM python:3.10-slim
 
-# Create non-root user with specific UID:GID
-RUN groupadd -g 1000 appgroup && \
-    useradd -u 1000 -g appgroup -m -d /app appuser
+# Create non-root user
+RUN groupadd -r appgroup && useradd -r -g appgroup -d /app appuser
 
 WORKDIR /app
 
@@ -18,8 +17,8 @@ RUN mkdir -p instance && \
     touch instance/products.db && \
     chown -R appuser:appgroup /app && \
     chmod -R 755 /app && \
-    chmod 777 instance && \
-    chmod 666 instance/products.db
+    chmod 777 /app/instance && \
+    chmod 666 /app/instance/products.db
 
 # Switch to non-root user
 USER appuser
