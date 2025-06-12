@@ -1,12 +1,16 @@
 version: '3.8'
 
 services:
-  product-service:
+  product_service:
     build: .
     ports:
       - "5002:5002"
     volumes:
       - ./instance:/app/instance
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+    user: "1000:1000"  # This should match the UID:GID of the created user in Dockerfile
     networks:
       - bookstore-network
 

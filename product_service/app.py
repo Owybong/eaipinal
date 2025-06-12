@@ -31,7 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database configuration
-DB_DIR = os.path.abspath('instance')
+DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
 DB_FILE = 'products.db'
 DB_PATH = os.path.join(DB_DIR, DB_FILE)
 

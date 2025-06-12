@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  analytics_service:
+    build: .
+    ports:
+      - "5006:5006"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - ORDER_SERVICE_URL=http://host.docker.internal:5004
+      - FLASK_ENV=production
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - "host.docker.internal:host-gateway" 
