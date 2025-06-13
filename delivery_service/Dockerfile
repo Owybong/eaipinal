@@ -28,7 +28,7 @@ WORKDIR /root/
 COPY --from=builder /app/main .
 
 # Expose port
-EXPOSE 8003
+EXPOSE 5005
 
 # Run the application
 CMD ["./main"]

@@ -1,8 +1,47 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:13
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   product_service:
     build: ./product_service
+    ports:
+      - "5001:5001"
+    networks:
+      - ecommerce_network
+
+  inventory_service:
+    build: ./inventory_service
+    ports:
+      - "5003:5003"
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres_db:5432/inventory_db
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ecommerce_network
+
+  customer_service:
+    build: ./customer_service
     ports:
       - "5002:5002"
     volumes:
@@ -14,7 +53,10 @@ services:
       - FLASK_ENV=development
     user: "1000:1000"
     networks:
-      - eai_network
+      - ecommerce_network
+    depends_on:
+      - inventory_service
+      - product_service
 
   order_service:
     build: ./order_service
@@ -26,9 +68,7 @@ services:
       - PRODUCT_SERVICE_URL=http://product_service:5002
       - CUSTOMER_SERVICE_URL=http://customer_service:5000
     networks:
-      - eai_network
-    depends_on:
-      - product_service
+      - ecommerce_network
 
   delivery_service:
     build: ./delivery_service
@@ -50,7 +90,7 @@ services:
     volumes:
       - ./customer_service/data:/app/data
     networks:
-      - eai_network
+      - ecommerce_network
 
   frontend:
     build: ./frontendnya
@@ -73,7 +113,7 @@ services:
       - "host.docker.internal:host-gateway"
 
 networks:
-  eai_network:
+  ecommerce_network:
     driver: bridge
 
 volumes:

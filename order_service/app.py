@@ -42,7 +42,7 @@ GET    /health         - Health check endpoint
 Environment Variables:
 -------------------
 MYSQL_HOST      - MySQL host (default: localhost)
-MYSQL_PORT      - MySQL port (default: 3308)
+MYSQL_PORT      - MySQL port (default: 3306)
 MYSQL_USER      - MySQL user (default: root)
 MYSQL_PASSWORD  - MySQL password (default: empty)
 MYSQL_DATABASE  - MySQL database (default: order_db)
@@ -82,7 +82,7 @@ PRODUCT_SERVICE_URL = os.getenv('PRODUCT_SERVICE_URL', 'http://host.docker.inter
 
 # MySQL configuration from environment variables
 MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
-MYSQL_PORT = os.getenv('MYSQL_PORT', '3308')
+MYSQL_PORT = os.getenv('MYSQL_PORT', '3306')
 MYSQL_USER = os.getenv('MYSQL_USER', 'root')
 MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
 MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'order_db')
