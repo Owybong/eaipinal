@@ -11,12 +11,12 @@ service = st.sidebar.selectbox(
 
 # Base URLs for each service
 SERVICE_URLS = {
-    "Product Service": "http://product_service:5001",
+    "Product Service": "http://localhost:5002",
     "Inventory Service": "http://inventory_service:5003",
-    "Customer Service": "http://customer_service:5002",
-    "Order Service": "http://order_service:5004",
+    "Customer Service": "http://localhost:5000",
+    "Order Service": "http://localhost:5004",
     "Delivery Service": "http://delivery_service:5005",
-    "Analytics Service": "http://analytics_service:5006",
+    "Analytics Service": "http://localhost:5006",
     "External API": "http://external_api:5007"
 }
 
