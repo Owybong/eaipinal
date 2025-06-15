@@ -9,8 +9,14 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
     environment:
-      - ORDER_SERVICE_URL=http://host.docker.internal:5004
+      - ORDER_SERVICE_URL=http://order-service:5004
       - FLASK_ENV=production
       - LOG_LEVEL=INFO
+    networks:
+      - bookstore-network
     extra_hosts:
-      - "host.docker.internal:host-gateway" 
+      - "host.docker.internal:host-gateway"
+
+networks:
+  bookstore-network:
+    external: true 

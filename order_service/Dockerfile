@@ -22,4 +22,4 @@ RUN mkdir -p data && chmod 777 data
 EXPOSE 5004
 
 # Use wait-for-it to ensure MySQL is ready
-CMD ["sh", "-c", "wait-for-it.sh mysql:3308 -t 60 -- python app.py"] 
+CMD ["sh", "-c", "wait-for-it.sh mysql:3306 -t 60 -- python app.py"] 

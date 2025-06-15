@@ -187,7 +187,7 @@ services:
   mysql:
     image: mysql:8.0
     ports:
-      - "3308:3306"
+      - "3306:3306"
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes
       - MYSQL_DATABASE=order_db
@@ -206,7 +206,7 @@ networks:
 
 3. Run the service:
 ```bash
-docker-compose up
+docker-compose up -d
 ```
 
 ### Manual Installation
@@ -226,10 +226,12 @@ python app.py
 ## Environment Variables
 
 - `MYSQL_HOST`: MySQL host (default: localhost)
-- `MYSQL_PORT`: MySQL port (default: 3308)
+- `MYSQL_PORT`: MySQL port (default: 3306)
 - `MYSQL_USER`: MySQL user (default: root)
 - `MYSQL_PASSWORD`: MySQL password (default: empty)
 - `MYSQL_DATABASE`: MySQL database name (default: order_db)
+- `CUSTOMER_SERVICE_URL`: URL for customer service (default: http://host.docker.internal:5000)
+- `PRODUCT_SERVICE_URL`: URL for product service (default: http://host.docker.internal:5002)
 
 ## Storage Modes
 

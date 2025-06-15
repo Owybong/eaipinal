@@ -10,7 +10,7 @@ Configuration:
 ------------
 The database connection is configured through environment variables:
 - MYSQL_HOST: Database host (default: localhost)
-- MYSQL_PORT: Database port (default: 3308)
+- MYSQL_PORT: Database port (default: 3306)
 - MYSQL_USER: Database user (default: root)
 - MYSQL_PASSWORD: Database password
 - MYSQL_DATABASE: Database name (default: order_db)
