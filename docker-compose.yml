@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:13
@@ -23,16 +21,20 @@ services:
   product_service:
     build: ./product_service
     ports:
-      - "5001:5001"
+      - "5002:5001"
+    volumes:
+      - product_data:/app/data
     networks:
       - ecommerce_network
+    depends_on:
+      - postgres
 
   inventory_service:
     build: ./inventory_service
     ports:
       - "5003:5003"
     environment:
-      - DATABASE_URL=postgres://user:password@postgres_db:5432/inventory_db
+      - DATABASE_URL=postgresql://user:password@postgres_db:5432/inventory_db
       - NODE_ENV=production
     depends_on:
       postgres:
@@ -43,15 +45,12 @@ services:
   customer_service:
     build: ./customer_service
     ports:
-      - "5002:5002"
+      - "5000:5000"
     volumes:
-      - type: bind
-        source: ./product_service/instance
-        target: /app/instance
+      - customer_data:/app/data
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=development
-    user: "1000:1000"
     networks:
       - ecommerce_network
     depends_on:
@@ -63,52 +62,50 @@ services:
     ports:
       - "5004:5004"
     volumes:
-      - ./order_service/data:/app/data
+      - order_data:/app/data
     environment:
-      - PRODUCT_SERVICE_URL=http://product_service:5002
+      - PRODUCT_SERVICE_URL=http://product_service:5001
       - CUSTOMER_SERVICE_URL=http://customer_service:5000
+      - INVENTORY_SERVICE_URL=http://inventory_service:5003
     networks:
       - ecommerce_network
+    depends_on:
+      - product_service
+      - customer_service
+      - inventory_service
 
   delivery_service:
     build: ./delivery_service
     ports:
       - "5005:5005"
     volumes:
-      - ./delivery_service/data:/app/data
+      - delivery_data:/app/data
     environment:
       - ORDER_SERVICE_URL=http://order_service:5004
     networks:
-      - eai_network
+      - ecommerce_network
     depends_on:
       - order_service
-
-  customer_service:
-    build: ./customer_service
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./customer_service/data:/app/data
-    networks:
-      - ecommerce_network
 
   frontend:
     build: ./frontendnya
     ports:
       - "3000:3000"
     environment:
-      - PRODUCT_SERVICE_URL=http://product_service:5002
+      - PRODUCT_SERVICE_URL=http://product_service:5001
       - ORDER_SERVICE_URL=http://order_service:5004
       - DELIVERY_SERVICE_URL=http://delivery_service:5005
       - ANALYTICS_SERVICE_URL=http://host.docker.internal:5006
       - CUSTOMER_SERVICE_URL=http://customer_service:5000
+      - INVENTORY_SERVICE_URL=http://inventory_service:5003
     networks:
-      - eai_network
+      - ecommerce_network
     depends_on:
       - product_service
       - order_service
       - delivery_service
       - customer_service
+      - inventory_service
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -117,6 +114,7 @@ networks:
     driver: bridge
 
 volumes:
+  postgres_data:
   product_data:
   order_data:
   delivery_data:

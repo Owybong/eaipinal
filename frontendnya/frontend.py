@@ -98,13 +98,8 @@ def create_warehouse(warehouse_id, name, location):
         "name": name,
         "location": location
     }
-    try:
-        res = requests.post(f"{BASE_URL}/warehouses", json=data, timeout=10)
-        print(f"Create warehouse response: {res.status_code}, {res.text}")
-        return res.status_code == 201
-    except Exception as e:
-        print(f"Error creating warehouse: {str(e)}")
-        return False
+    res = requests.post(f"{BASE_URL}/warehouses", json=data)
+    return res.status_code == 201
 
 # ---------- Customer Service Functions ----------
 def get_customer(customer_id):
@@ -152,7 +147,7 @@ def get_customer_inventory(product_id):
 def get_all_warehouses():
     query = """
     query GetAllWarehouses {
-        getAllWarehouses {
+        getWarehouses {
             id
             name
             location
@@ -163,7 +158,7 @@ def get_all_warehouses():
     if res.status_code == 200:
         data = res.json()
         if "errors" not in data and "data" in data:
-            return data["data"]["getAllWarehouses"]
+            return data["data"]["getWarehouses"]
     return []
 
 # ---------- Product Service Tab ----------
