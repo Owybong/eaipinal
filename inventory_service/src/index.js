@@ -26,7 +26,6 @@ app.use('/', restAdapter);
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  cache: "bounded",
   context: ({ req }) => {
     // Here you can add authentication logic if needed
     return {
@@ -47,8 +46,6 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Database connection has been established successfully.');
     
-    await sequelize.sync(); // This will create tables if they don't exist
-    
     // Start the Apollo server
     await server.start();
     
@@ -59,10 +56,10 @@ async function startServer() {
     const PORT = process.env.PORT || 5003;
     
     // Start the Express server
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server is running at http://0.0.0.0:${PORT}`);
-      console.log(`GraphQL endpoint is at http://0.0.0.0:${PORT}${server.graphqlPath}`);
-      console.log(`REST endpoints are available at http://0.0.0.0:${PORT}/`);
+    app.listen(PORT, () => {
+      console.log(`Server is running at http://localhost:${PORT}`);
+      console.log(`GraphQL endpoint is at http://localhost:${PORT}${server.graphqlPath}`);
+      console.log(`REST endpoints are available at http://localhost:${PORT}/`);
     });
   } catch (error) {
     console.error('Error starting server:', error);

@@ -1,7 +1,8 @@
 module.exports = {
   development: {
-    url: process.env.DATABASE_URL || 'postgres://user:password@localhost:5432/inventory_db',
-    dialect: 'postgres',
+    dialect: 'sqlite',
+    storage: './database.sqlite',
+    logging: false
   },
   test: {
     dialect: 'sqlite',
@@ -9,7 +10,8 @@ module.exports = {
     logging: false
   },
   production: {
-    url: process.env.DATABASE_URL,
-    dialect: 'postgres'
+    dialect: 'sqlite',
+    storage: './database_prod.sqlite',
+    logging: false
   }
 } 
