@@ -38,11 +38,11 @@ func getEnv(key, defaultValue string) string {
 
 func main() {
 	// Initialize database connection
-	dbHost := getEnv("DB_HOST", "postgres_db") // Use Docker Compose service name
-	dbPort := getEnv("DB_PORT", "5432")
-	dbUser := getEnv("DB_USER", "user")
-	dbPassword := getEnv("DB_PASSWORD", "password")
-	dbName := getEnv("DB_NAME", "inventory_db") // Assuming same DB as inventory, adjust if new DB for delivery
+	dbHost := getEnv("DB_HOST", "postgres_db") // This should be 'postgres_db' for Docker network
+	dbPort := getEnv("DB_PORT", "5432")         // Default PostgreSQL port
+	dbUser := getEnv("DB_USER", "user")         // Matches user in docker-compose.yml for postgres
+	dbPassword := getEnv("DB_PASSWORD", "password") // Matches password in docker-compose.yml for postgres
+	dbName := getEnv("DB_NAME", "inventory_db") // Database name in docker-compose.yml for postgres
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPassword, dbName)

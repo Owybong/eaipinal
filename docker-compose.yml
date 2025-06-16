@@ -82,10 +82,24 @@ services:
       - delivery_data:/app/data
     environment:
       - ORDER_SERVICE_URL=http://order_service:5004
+      - PORT=5005
+      - DB_HOST=postgres_db # This must be 'postgres_db' (the service name)
+      - DB_PORT=5432        # Default PostgreSQL port
+      - DB_USER=user        # Must match postgres service's POSTGRES_USER
+      - DB_PASSWORD=password # Must match postgres service's POSTGRES_PASSWORD
+      - DB_NAME=inventory_db # Must match postgres service's POSTGRES_DB
     networks:
       - ecommerce_network
     depends_on:
-      - order_service
+      order_service:
+        condition: service_started
+      postgres: # Crucial dependency for database connection
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5005/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build: ./frontendnya
