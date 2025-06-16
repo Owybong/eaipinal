@@ -1,0 +1,40 @@
+# Gitignore for Go projects
+
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.wasm
+*.o
+*.cgo1.go
+*.cgo2.c
+*.cgo2.h
+*.syso
+_test
+
+# Package management
+vendor/
+go.sum
+
+# Test binary for `go test -c`
+*.test
+
+# Build output
+output/
+build/
+dist/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/

@@ -1,6 +1,6 @@
-module delivery-service
+module delivery_service
 
-go 1.22
+go 1.24.4
 
 require (
 	github.com/gorilla/mux v1.8.1

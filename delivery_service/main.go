@@ -11,9 +11,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
+// Delivery represents the structure of a delivery record
 type Delivery struct {
 	ID              int       `json:"id"`
 	OrderID         int       `json:"order_id"`
@@ -24,349 +25,239 @@ type Delivery struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
-type DeliveryRequest struct {
-	OrderID         int    `json:"order_id"`
-	DeliveryAddress string `json:"delivery_address"`
-}
-
-type DeliveryResponse struct {
-	Success bool      `json:"success"`
-	Message string    `json:"message"`
-	Data    *Delivery `json:"data,omitempty"`
-}
-
+// Global variable for database connection
 var db *sql.DB
+
+// Helper to get environment variables with default values
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
+}
 
 func main() {
 	// Initialize database connection
-	initDB()
+	dbHost := getEnv("DB_HOST", "postgres_db") // Use Docker Compose service name
+	dbPort := getEnv("DB_PORT", "5432")
+	dbUser := getEnv("DB_USER", "user")
+	dbPassword := getEnv("DB_PASSWORD", "password")
+	dbName := getEnv("DB_NAME", "inventory_db") // Assuming same DB as inventory, adjust if new DB for delivery
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dbHost, dbPort, dbUser, dbPassword, dbName)
+
+	var err error
+	db, err = sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatalf("Error opening database connection: %v", err)
+	}
 	defer db.Close()
 
-	// Create tables
-	createTables()
+	// Ping the database to ensure connection is established
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Error connecting to the database: %v", err)
+	}
+	log.Println("Successfully connected to the database!")
 
-	// Setup routes
+	// Initialize the router
 	router := mux.NewRouter()
 
-	// Delivery endpoints
-	router.HandleFunc("/delivery/{order_id}", createDelivery).Methods("POST")
-	router.HandleFunc("/delivery/{order_id}", getDelivery).Methods("GET")
-	router.HandleFunc("/delivery/{order_id}/status", updateDeliveryStatus).Methods("PUT")
-	router.HandleFunc("/health", healthCheck).Methods("GET")
+	// --- API Endpoints ---
+	router.HandleFunc("/health", healthCheckHandler).Methods("GET")
+	router.HandleFunc("/delivery/{order_id}", createDeliveryHandler).Methods("POST")
+	router.HandleFunc("/delivery/{order_id}", getDeliveryHandler).Methods("GET")
+	router.HandleFunc("/delivery/{order_id}/status", updateDeliveryStatusHandler).Methods("PUT")
 
-	// Add CORS middleware
-	router.Use(corsMiddleware)
-
-	port := getEnv("PORT", "8003")
-	fmt.Printf("Delivery Service running on port %s\n", port)
+	// Start the HTTP server
+	port := getEnv("PORT", "5005") // Match with docker-compose.yml exposed port
+	log.Printf("Delivery Service starting on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
-func initDB() {
-	host := getEnv("DB_HOST", "localhost")
-	port := getEnv("DB_PORT", "5005")
-	user := getEnv("DB_USER", "postgres")
-	password := getEnv("DB_PASSWORD", "password123")
-	dbname := getEnv("DB_NAME", "delivery_db")
-
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-
-	var err error
-	db, err = sql.Open("postgres", psqlInfo)
-	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+// Handler for health check endpoint
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	status := "healthy"
+	dbStatus := "connected"
+	if err := db.Ping(); err != nil {
+		status = "unhealthy" // Service is unhealthy if DB is down for this check
+		dbStatus = "disconnected"
+		log.Printf("Health check: Database disconnected - %v", err)
 	}
 
-	err = db.Ping()
-	if err != nil {
-		log.Fatal("Failed to ping database:", err)
-	}
-
-	fmt.Println("Successfully connected to PostgreSQL database!")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    status,
+		"service":   "delivery-service",
+		"timestamp": time.Now().Format(time.RFC3339),
+		"database":  dbStatus,
+	})
 }
 
-func createTables() {
-	query := `
-	CREATE TABLE IF NOT EXISTS deliveries (
-		id SERIAL PRIMARY KEY,
-		order_id INTEGER UNIQUE NOT NULL,
-		status VARCHAR(50) NOT NULL DEFAULT 'pending',
-		estimated_time VARCHAR(100),
-		delivery_address TEXT NOT NULL,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_deliveries_order_id ON deliveries(order_id);
-	CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries(status);
-	`
-
-	_, err := db.Exec(query)
-	if err != nil {
-		log.Fatal("Failed to create tables:", err)
-	}
-	fmt.Println("Database tables created successfully!")
-}
-
-func createDelivery(w http.ResponseWriter, r *http.Request) {
+// Handler to create a new delivery record
+func createDeliveryHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	orderID, err := strconv.Atoi(vars["order_id"])
+	orderIDStr := vars["order_id"]
+	orderID, err := strconv.Atoi(orderIDStr)
 	if err != nil {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Invalid order ID",
-		}, http.StatusBadRequest)
+		http.Error(w, `{"success": false, "message": "Invalid Order ID"}`, http.StatusBadRequest)
 		return
 	}
 
-	var deliveryReq DeliveryRequest
-	err = json.NewDecoder(r.Body).Decode(&deliveryReq)
-	if err != nil {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Invalid request body",
-		}, http.StatusBadRequest)
+	var reqBody struct {
+		DeliveryAddress string `json:"delivery_address"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, `{"success": false, "message": "Invalid request body"}`, http.StatusBadRequest)
 		return
 	}
 
-	// Validate required fields
-	if deliveryReq.DeliveryAddress == "" {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Delivery address is required",
-		}, http.StatusBadRequest)
+	if reqBody.DeliveryAddress == "" {
+		http.Error(w, `{"success": false, "message": "Delivery address cannot be empty"}`, http.StatusBadRequest)
 		return
 	}
 
-	// Check if delivery already exists for this order
+	// Check if a delivery for this order_id already exists
 	var existingID int
 	err = db.QueryRow("SELECT id FROM deliveries WHERE order_id = $1", orderID).Scan(&existingID)
 	if err == nil {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Delivery already exists for this order",
-		}, http.StatusConflict)
+		http.Error(w, `{"success": false, "message": "Delivery already exists for this order ID"}`, http.StatusConflict)
+		return
+	}
+	if err != sql.ErrNoRows {
+		log.Printf("Database error checking existing delivery: %v", err)
+		http.Error(w, `{"success": false, "message": "Database error"}`, http.StatusInternalServerError)
 		return
 	}
 
-	// Generate estimated delivery time (30-60 minutes from now)
-	estimatedMinutes := 30 + (orderID % 31) // Simple estimation based on order ID
-	estimatedTimeStr := fmt.Sprintf("%d-%d minutes", estimatedMinutes, estimatedMinutes+10)
+	var newDelivery Delivery
+	newDelivery.OrderID = orderID
+	newDelivery.DeliveryAddress = reqBody.DeliveryAddress
+	newDelivery.Status = "pending" // Default status
+	newDelivery.EstimatedTime = "30-40 minutes" // Example default
 
-	// Create delivery record
-	query := `
-		INSERT INTO deliveries (order_id, status, estimated_time, delivery_address)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, created_at, updated_at
-	`
+	query := `INSERT INTO deliveries (order_id, status, estimated_time, delivery_address)
+              VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at`
 
-	var delivery Delivery
-	err = db.QueryRow(query, orderID, "pending", estimatedTimeStr, deliveryReq.DeliveryAddress).
-		Scan(&delivery.ID, &delivery.CreatedAt, &delivery.UpdatedAt)
+	err = db.QueryRow(query, newDelivery.OrderID, newDelivery.Status,
+		newDelivery.EstimatedTime, newDelivery.DeliveryAddress).Scan(
+		&newDelivery.ID, &newDelivery.CreatedAt, &newDelivery.UpdatedAt)
+
 	if err != nil {
-		log.Printf("Failed to create delivery: %v", err)
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Failed to create delivery",
-		}, http.StatusInternalServerError)
+		log.Printf("Error inserting new delivery: %v", err)
+		http.Error(w, `{"success": false, "message": "Failed to create delivery"}`, http.StatusInternalServerError)
 		return
 	}
 
-	delivery.OrderID = orderID
-	delivery.Status = "pending"
-	delivery.EstimatedTime = estimatedTimeStr
-	delivery.DeliveryAddress = deliveryReq.DeliveryAddress
-
-	// Simulate communication with Order Service (in real implementation, make HTTP call)
-	log.Printf("Would notify Order Service that delivery created for order %d", orderID)
-
-	sendResponse(w, DeliveryResponse{
-		Success: true,
-		Message: "Delivery created successfully",
-		Data:    &delivery,
-	}, http.StatusCreated)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Delivery created successfully",
+		"data":    newDelivery,
+	})
 }
 
-func getDelivery(w http.ResponseWriter, r *http.Request) {
+// Handler to get delivery details by order ID
+func getDeliveryHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	orderID, err := strconv.Atoi(vars["order_id"])
+	orderIDStr := vars["order_id"]
+	orderID, err := strconv.Atoi(orderIDStr)
 	if err != nil {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Invalid order ID",
-		}, http.StatusBadRequest)
+		http.Error(w, `{"success": false, "message": "Invalid Order ID"}`, http.StatusBadRequest)
 		return
 	}
 
 	var delivery Delivery
-	query := `
-		SELECT id, order_id, status, estimated_time, delivery_address, created_at, updated_at
-		FROM deliveries
-		WHERE order_id = $1
-	`
-
-	err = db.QueryRow(query, orderID).Scan(
-		&delivery.ID,
-		&delivery.OrderID,
-		&delivery.Status,
-		&delivery.EstimatedTime,
-		&delivery.DeliveryAddress,
-		&delivery.CreatedAt,
-		&delivery.UpdatedAt,
-	)
+	query := `SELECT id, order_id, status, estimated_time, delivery_address, created_at, updated_at
+              FROM deliveries WHERE order_id = $1`
+	row := db.QueryRow(query, orderID)
+	err = row.Scan(&delivery.ID, &delivery.OrderID, &delivery.Status, &delivery.EstimatedTime,
+		&delivery.DeliveryAddress, &delivery.CreatedAt, &delivery.UpdatedAt)
 
 	if err == sql.ErrNoRows {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Delivery not found for this order",
-		}, http.StatusNotFound)
+		http.Error(w, `{"success": false, "message": "Delivery not found"}`, http.StatusNotFound)
 		return
 	}
-
 	if err != nil {
-		log.Printf("Failed to get delivery: %v", err)
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Failed to retrieve delivery",
-		}, http.StatusInternalServerError)
+		log.Printf("Error fetching delivery: %v", err)
+		http.Error(w, `{"success": false, "message": "Database error"}`, http.StatusInternalServerError)
 		return
 	}
 
-	sendResponse(w, DeliveryResponse{
-		Success: true,
-		Message: "Delivery retrieved successfully",
-		Data:    &delivery,
-	}, http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Delivery retrieved successfully",
+		"data":    delivery,
+	})
 }
 
-func updateDeliveryStatus(w http.ResponseWriter, r *http.Request) {
+// Handler to update delivery status by order ID
+func updateDeliveryStatusHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	orderID, err := strconv.Atoi(vars["order_id"])
+	orderIDStr := vars["order_id"]
+	orderID, err := strconv.Atoi(orderIDStr)
 	if err != nil {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Invalid order ID",
-		}, http.StatusBadRequest)
+		http.Error(w, `{"success": false, "message": "Invalid Order ID"}`, http.StatusBadRequest)
 		return
 	}
 
-	var statusUpdate struct {
+	var reqBody struct {
 		Status string `json:"status"`
 	}
-
-	err = json.NewDecoder(r.Body).Decode(&statusUpdate)
-	if err != nil {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Invalid request body",
-		}, http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, `{"success": false, "message": "Invalid request body"}`, http.StatusBadRequest)
 		return
 	}
 
 	// Validate status
 	validStatuses := map[string]bool{
-		"pending":    true,
-		"preparing":  true,
-		"on_the_way": true,
-		"delivered":  true,
-		"cancelled":  true,
+		"pending":      true,
+		"preparing":    true,
+		"on_the_way":   true,
+		"delivered":    true,
+		"cancelled":    true,
 	}
-
-	if !validStatuses[statusUpdate.Status] {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Invalid status. Valid statuses: pending, preparing, on_the_way, delivered, cancelled",
-		}, http.StatusBadRequest)
+	if !validStatuses[reqBody.Status] {
+		http.Error(w, `{"success": false, "message": "Invalid status value"}`, http.StatusBadRequest)
 		return
 	}
 
-	// Update delivery status
-	query := `
-		UPDATE deliveries 
-		SET status = $1, updated_at = CURRENT_TIMESTAMP
-		WHERE order_id = $2
-		RETURNING id, order_id, status, estimated_time, delivery_address, created_at, updated_at
-	`
-
-	var delivery Delivery
-	err = db.QueryRow(query, statusUpdate.Status, orderID).Scan(
-		&delivery.ID,
-		&delivery.OrderID,
-		&delivery.Status,
-		&delivery.EstimatedTime,
-		&delivery.DeliveryAddress,
-		&delivery.CreatedAt,
-		&delivery.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Delivery not found for this order",
-		}, http.StatusNotFound)
+	result, err := db.Exec(`UPDATE deliveries SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE order_id = $2`,
+		reqBody.Status, orderID)
+	if err != nil {
+		log.Printf("Error updating delivery status: %v", err)
+		http.Error(w, `{"success": false, "message": "Failed to update delivery status"}`, http.StatusInternalServerError)
 		return
 	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		http.Error(w, `{"success": false, "message": "Delivery not found or no changes made"}`, http.StatusNotFound)
+		return
+	}
+
+	// Optionally, fetch the updated delivery to return
+	var updatedDelivery Delivery
+	query := `SELECT id, order_id, status, estimated_time, delivery_address, created_at, updated_at
+              FROM deliveries WHERE order_id = $1`
+	row := db.QueryRow(query, orderID)
+	err = row.Scan(&updatedDelivery.ID, &updatedDelivery.OrderID, &updatedDelivery.Status, &updatedDelivery.EstimatedTime,
+		&updatedDelivery.DeliveryAddress, &updatedDelivery.CreatedAt, &updatedDelivery.UpdatedAt)
 
 	if err != nil {
-		log.Printf("Failed to update delivery status: %v", err)
-		sendResponse(w, DeliveryResponse{
-			Success: false,
-			Message: "Failed to update delivery status",
-		}, http.StatusInternalServerError)
+		log.Printf("Error fetching updated delivery: %v", err)
+		http.Error(w, `{"success": false, "message": "Successfully updated status, but failed to retrieve updated details"}`, http.StatusInternalServerError)
 		return
-	}
-
-	sendResponse(w, DeliveryResponse{
-		Success: true,
-		Message: "Delivery status updated successfully",
-		Data:    &delivery,
-	}, http.StatusOK)
-}
-
-func healthCheck(w http.ResponseWriter, r *http.Request) {
-	response := map[string]interface{}{
-		"status":    "healthy",
-		"service":   "delivery-service",
-		"timestamp": time.Now().Format(time.RFC3339),
-		"database":  "connected",
-	}
-
-	// Test database connection
-	err := db.Ping()
-	if err != nil {
-		response["database"] = "disconnected"
-		response["status"] = "unhealthy"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Delivery status updated successfully",
+		"data":    updatedDelivery,
 	})
-}
-
-func sendResponse(w http.ResponseWriter, response DeliveryResponse, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(response)
-}
-
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }

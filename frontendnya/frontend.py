@@ -64,6 +64,45 @@ def delete_order(order_id):
     res = requests.delete(f"{BASE_URL}/orders/{order_id}")
     return res.status_code == 200
 
+# ---------- Delivery Service Functions ----------
+def create_delivery(order_id, delivery_address):
+    """Create a new delivery record for an order."""
+    data = {
+        "order_id": order_id, # Although provided in URL, it's good practice to include
+        "delivery_address": delivery_address
+    }
+    # Note: The Go service uses the order_id in the path for POST
+    res = requests.post(f"{SERVICE_URLS['Delivery Service']}/delivery/{order_id}", json=data)
+    if res.status_code == 201:
+        st.success(f"Delivery created for order {order_id}!")
+        return res.json()
+    else:
+        st.error(f"Failed to create delivery: {res.json().get('message', res.text)}")
+        return None
+
+def get_delivery_status(order_id):
+    """Get the delivery status for a specific order."""
+    res = requests.get(f"{SERVICE_URLS['Delivery Service']}/delivery/{order_id}")
+    if res.status_code == 200:
+        return res.json()
+    elif res.status_code == 404:
+        st.info(f"No delivery found for order ID: {order_id}.")
+        return None
+    else:
+        st.error(f"Failed to fetch delivery status: {res.json().get('message', res.text)}")
+        return None
+
+def update_delivery_status(order_id, status):
+    """Update the status of a delivery."""
+    data = {"status": status}
+    res = requests.put(f"{SERVICE_URLS['Delivery Service']}/delivery/{order_id}/status", json=data)
+    if res.status_code == 200:
+        st.success(f"Delivery status for order {order_id} updated to '{status}'.")
+        return res.json()
+    else:
+        st.error(f"Failed to update delivery status: {res.json().get('message', res.text)}")
+        return None
+
 #-------Analytics Service Functions-----------
 
 def get_sales_analytics():
@@ -424,10 +463,56 @@ elif service == "Order Service":
             else:
                 st.error("Failed to create order. Please try again.")
 
+
 # ---------- Delivery Service Tab ----------
 elif service == "Delivery Service":
-    st.title("🚚 Delivery Service")
-    st.info("This section will connect to Delivery Service endpoints.")
+    st.title("🚚 Delivery Management")
+
+    tab1, tab2, tab3 = st.tabs(["Create Delivery", "Get Delivery Status", "Update Delivery Status"])
+
+    with tab1:
+        st.subheader("➕ Create New Delivery")
+        with st.form("create_delivery_form"):
+            create_order_id = st.number_input("Order ID", min_value=1, step=1, key="create_order_id")
+            delivery_address = st.text_area("Delivery Address", key="delivery_address")
+            submit_create = st.form_submit_button("Create Delivery")
+
+            if submit_create and create_order_id and delivery_address:
+                # The Go service expects the order_id in the path
+                create_delivery(create_order_id, delivery_address)
+
+    with tab2:
+        st.subheader("🔍 Get Delivery Status")
+        get_order_id = st.number_input("Enter Order ID", min_value=1, step=1, key="get_order_id")
+        if st.button("Get Status", key="get_status_button"):
+            delivery_info = get_delivery_status(get_order_id)
+            if delivery_info and delivery_info.get("success"):
+                data = delivery_info.get("data")
+                if data:
+                    st.write(f"**Order ID:** {data['order_id']}")
+                    st.write(f"**Status:** {data['status']}")
+                    st.write(f"**Estimated Time:** {data['estimated_time']}")
+                    st.write(f"**Delivery Address:** {data['delivery_address']}")
+                    st.write(f"**Created At:** {data['created_at']}")
+                    st.write(f"**Last Updated:** {data['updated_at']}")
+                else:
+                    st.info("No delivery data returned, or delivery does not exist for this order ID.")
+            elif delivery_info: # if success is false or no data
+                st.error(delivery_info.get('message', 'Could not retrieve delivery details.'))
+
+    with tab3:
+        st.subheader("🔄 Update Delivery Status")
+        with st.form("update_delivery_form"):
+            update_order_id = st.number_input("Order ID to Update", min_value=1, step=1, key="update_order_id")
+            new_status = st.selectbox(
+                "New Status",
+                ["pending", "preparing", "on_the_way", "delivered", "cancelled"],
+                key="new_status"
+            )
+            submit_update = st.form_submit_button("Update Status")
+
+            if submit_update and update_order_id and new_status:
+                update_delivery_status(update_order_id, new_status)
 
 # ---------- Analytics Service Tab ----------
 elif service == "Analytics Service":
